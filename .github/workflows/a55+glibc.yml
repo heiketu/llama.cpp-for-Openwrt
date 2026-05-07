@@ -1,0 +1,43 @@
+name: Build llama.cpp Server for RK3566 glibc FP16
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install AArch64 glibc cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Build Static Server with glibc
+        run: |
+          git clone https://github.com/ggerganov/llama.cpp
+          cd llama.cpp
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DGGML_STATIC=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_BUILD_SERVER=ON \
+            -DCMAKE_EXE_LINKER_FLAGS="-static" \
+            -DCMAKE_C_FLAGS="-march=armv8.2-a+simd+fp16 -mcpu=cortex-a55" \
+            -DCMAKE_CXX_FLAGS="-march=armv8.2-a+simd+fp16 -mcpu=cortex-a55"
+          make -j$(nproc)
+          aarch64-linux-gnu-strip bin/llama-server
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-server-rk3566-glibc-fp16
+          path: llama.cpp/build/bin/llama-server
