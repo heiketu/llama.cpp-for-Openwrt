@@ -1,0 +1,37 @@
+name: Build llama.cpp Server for Cortex-A53 musl FP16
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build with dockcross (musl)
+        run: |
+          docker run --rm dockcross/linux-arm64-musl \
+            bash -c "git clone https://github.com/ggerganov/llama.cpp && \
+                     cd llama.cpp && mkdir build && cd build && \
+                     cmake .. \
+                       -DCMAKE_SYSTEM_NAME=Linux \
+                       -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+                       -DCMAKE_C_COMPILER=aarch64-linux-musl-gcc \
+                       -DCMAKE_CXX_COMPILER=aarch64-linux-musl-g++ \
+                       -DGGML_STATIC=ON \
+                       -DBUILD_SHARED_LIBS=OFF \
+                       -DLLAMA_BUILD_SERVER=ON \
+                       -DCMAKE_EXE_LINKER_FLAGS='-static' \
+                       -DCMAKE_C_FLAGS='-march=armv8-a+simd+fp16 -mcpu=cortex-a53' \
+                       -DCMAKE_CXX_FLAGS='-march=armv8-a+simd+fp16 -mcpu=cortex-a53' && \
+                     make -j$(nproc) && \
+                     aarch64-linux-musl-strip bin/llama-server"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-server-cortex-a53-musl-fp16
+          path: llama.cpp/build/bin/llama-server
