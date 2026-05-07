@@ -1,0 +1,52 @@
+name: Build llama.cpp Server for AArch64 Static-NEON-FP16 (musl)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install musl Cross-Compilation Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git musl-tools
+          sudo apt-get install -y gcc-aarch64-linux-musl g++-aarch64-linux-musl
+
+      - name: Clone llama.cpp
+        run: |
+          git clone https://github.com/ggerganov/llama.cpp
+          cd llama.cpp && git checkout master
+
+      - name: Build Static Server with NEON + FP16
+        run: |
+          cd llama.cpp
+          mkdir build
+          cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DCMAKE_C_COMPILER=aarch64-linux-musl-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-musl-g++ \
+            -DGGML_STATIC=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_BUILD_SERVER=ON \
+            -DCMAKE_EXE_LINKER_FLAGS="-static" \
+            -DCMAKE_C_FLAGS="-march=armv8-a+simd+fp16" \
+            -DCMAKE_CXX_FLAGS="-march=armv8-a+simd+fp16"
+          
+          make -j$(nproc)
+
+      - name: Strip Binary
+        run: |
+          aarch64-linux-musl-strip llama.cpp/build/bin/llama-server
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-server-aarch64-static-neon-fp16-musl
+          path: llama.cpp/build/bin/llama-server
