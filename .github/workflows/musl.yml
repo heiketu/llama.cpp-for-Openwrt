@@ -1,4 +1,4 @@
-name: Build llama.cpp Server for AArch64 Static-NEON
+name: Build llama.cpp Server for AArch64 Static-NEON Musl
 
 on:
   workflow_dispatch: # 允许手动点击按钮触发构建
